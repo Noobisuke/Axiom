@@ -82,4 +82,61 @@ inline constexpr Square make_square(File f, Rank r) { return Square(static_cast<
 // Useful for debugging: pass to std::cout << print_bb(bb)
 std::string print_bb(Bitboard bb);
 
+// ---------- Attack Tables (Phase 3 Step 3) ----------
+// Precomputed attack bitboards for knights, kings, and pawns
+
+// Knight attacks from each square
+extern Bitboard KNIGHT_ATTACKS[SQUARES];
+
+// King attacks from each square
+extern Bitboard KING_ATTACKS[SQUARES];
+
+// Pawn attacks: [color][square] - squares a pawn attacks from that square
+extern Bitboard PAWN_ATTACKS[COLORS][SQUARES];
+
+// Initialize all attack tables (called once at startup)
+void init_attack_tables();
+
+// ---------- Sliding Attacks (Phase 3 Step 4) ----------
+// Magic bitboard and PEXT-based sliding attacks for bishops, rooks, queens
+
+// Compile-time configuration
+// #define USE_PEXT_ATTACKS  // Uncomment to use PEXT (requires BMI2)
+// If not defined, uses magic bitboards
+
+// Magic bitboard entry for a square
+struct MagicEntry {
+  Bitboard mask;      // Relevant occupancy bits
+  Bitboard magic;     // Magic number
+  int shift;          // Shift amount (64 - index_bits)
+  Bitboard* attacks;  // Pointer to attack table for this square
+  Bitboard reference; // Reference occupancy for verification
+};
+
+extern MagicEntry BISHOP_MAGICS[SQUARES];
+extern MagicEntry ROOK_MAGICS[SQUARES];
+
+extern Bitboard BISHOP_ATTACKS_TABLE[];
+extern Bitboard ROOK_ATTACKS_TABLE[];
+
+// Initialize sliding attack tables (magic bitboards or PEXT)
+void init_sliding_attacks();
+
+// Sliding attack functions
+inline Bitboard bishop_attacks(Square sq, Bitboard occupied) {
+  const MagicEntry& entry = BISHOP_MAGICS[static_cast<int>(sq)];
+  Bitboard occupancy = (occupied & entry.mask) * entry.magic >> entry.shift;
+  return entry.attacks[occupancy];
+}
+
+inline Bitboard rook_attacks(Square sq, Bitboard occupied) {
+  const MagicEntry& entry = ROOK_MAGICS[static_cast<int>(sq)];
+  Bitboard occupancy = (occupied & entry.mask) * entry.magic >> entry.shift;
+  return entry.attacks[occupancy];
+}
+
+inline Bitboard queen_attacks(Square sq, Bitboard occupied) {
+  return bishop_attacks(sq, occupied) | rook_attacks(sq, occupied);
+}
+
 } // namespace chess

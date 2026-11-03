@@ -83,6 +83,15 @@ target_link_libraries(axiom PRIVATE chess_engine)
 add_executable(perft_test tests/perft_test.cpp)
 target_link_libraries(perft_test PRIVATE chess_engine)
 
+# ---------- FEN / Position test executable ----------
+add_executable(fen_test tests/fen_test.cpp)
+target_link_libraries(fen_test PRIVATE chess_engine)
+
+# ---------- CTest registration ----------
+enable_testing()
+add_test(NAME fen   COMMAND fen_test)
+add_test(NAME perft COMMAND perft_test 4)
+
 # ---------- Bench executable ----------
 add_executable(bench bench/bench.cpp)
 target_link_libraries(bench PRIVATE chess_engine)

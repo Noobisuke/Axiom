@@ -8,8 +8,12 @@
 
 ## Current Status
 
-🚧 **Early Development — Phase 3, Step 2**  
-Implementing: Position representation, robust FEN parsing/printing, position validation, Zobrist hashing.
+🚧 **Early Development — Phase 3 complete (bitboards, legal move generation, perft verified)**
+
+The engine generates fully legal moves and reproduces the standard perft counts
+for all six reference positions, up to depth 6. It does **not play chess yet** —
+there is no search beyond a placeholder and evaluation is material-only, so `go`
+still returns `bestmove 0000`.
 
 ## Goals
 
@@ -20,28 +24,42 @@ Implementing: Position representation, robust FEN parsing/printing, position val
 
 ## Implemented (Verified)
 
-- ✅ Bitboard representation (uint64_t, popcount, LSB, shifts)
-- ✅ UCI protocol (uci, isready, position, go, stop, quit)
-- ✅ Basic engine loop and command parsing
+- ✅ Bitboard representation (uint64_t, popcount, LSB, shifts, `print_bb`)
+- ✅ Precomputed attack tables: knight, king, pawn
+- ✅ Sliding attacks via magic bitboards, magics generated **and verified** at startup
+- ✅ Position with piece/colour bitboards, mailbox, castling rights, en passant, clocks
+- ✅ Robust FEN parser (4- or 6-field, whitespace-tolerant, error messages) and 6-field printer
+- ✅ Position validation (one king per side, no adjacent kings, pawn/​material limits, side-not-to-move in check, mailbox≡bitboards)
+- ✅ Zobrist hashing (fixed keys, computed from scratch and updated incrementally)
+- ✅ Fully legal move generation (pins, checks, en passant, castling, promotions)
+- ✅ make / unmake with an `Undo` record and incremental hash
+- ✅ perft and perft-divide
+- ✅ UCI protocol (uci, isready, position, ucinewgame, go, stop, quit)
 - ✅ Material-only evaluation (placeholder)
 - ✅ Transposition table structure
-- 🚧 Position struct with mailbox, castling, EP, clocks, Zobrist, history
-- 🚧 Robust FEN parser (4/6 fields, validation, error messages)
-- 🚧 FEN printer (standard 6-field format)
-- 🚧 Position validation (kings, pawns, piece counts, side-not-to-move check)
+
+### Perft verification
+
+| Position | d1 | d2 | d3 | d4 | d5 | d6 |
+|---|---|---|---|---|---|---|
+| startpos | 20 | 400 | 8902 | 197281 | 4865609 | 119060324 |
+| kiwipete | 48 | 2039 | 97862 | 4085603 | 193690690 | — |
+| position 3 | 14 | 191 | 2812 | 43238 | 674624 | 11030083 |
+| position 4 | 6 | 264 | 9467 | 422333 | 15833292 | — |
+| position 5 | 44 | 1486 | 62379 | 2103487 | 89941194 | — |
+| position 6 | 46 | 2079 | 89890 | 3894594 | 164075551 | — |
+
+All 32 checks pass. (~25–34M nps, Release, Ryzen 5 5600H.)
 
 ## Not Yet Implemented
 
-- ❌ Attack tables (knight, king, pawn, sliding)
-- ❌ Magic bitboard / PEXT sliding attacks
-- ❌ Legal move generation
-- ❌ Perft / perft-divide verification
-- ❌ make_move / unmove_move with incremental updates
-- ❌ Alpha-beta search, quiescence, PVS
-- ❌ Search enhancements (null move, LMR, futility, etc.)
+- ❌ Alpha-beta search, quiescence, iterative deepening
+- ❌ Search enhancements (PVS, null move, LMR, futility, etc.)
+- ❌ Draw detection (threefold repetition, 50-move rule, insufficient material)
 - ❌ Handcrafted evaluation + Texel tuning
 - ❌ NNUE evaluation
 - ❌ Multithreading (Lazy SMP), time management, Syzygy TBs
+- ❌ PEXT-based sliding attacks (magic bitboards are the current, portable path)
 
 ## Technology Stack
 
@@ -125,15 +143,26 @@ ninja -C build-debug
 ## Running Tests
 
 ```powershell
-# Perft tests (once implemented)
+# FEN parsing, validation, mailbox/bitboard agreement, Zobrist  (48 checks)
+.\build\bin\fen_test.exe
+
+# Perft, depths 1-4 across all six reference positions
 .\build\bin\perft_test.exe
 
-# Bench (once search exists)
+# Go deeper (this is the real correctness gate; d6 takes ~4 s for startpos)
+.\build\bin\perft_test.exe 6
+
+# Per-move breakdown for one position, e.g. case 1 (kiwipete) at depth 3
+.\build\bin\perft_test.exe 1 divide 3
+
+# Bench (placeholder search until Phase 4)
 .\build\bin\bench.exe
 
 # UCI smoke test
-echo "uci`nisready`nposition startpos`ngo depth 10`nquit" | .\build\bin\axiom.exe
+printf 'uci\nisready\nposition startpos moves e2e4 e7e5 g1f3\ngo depth 3\nquit\n' | .\build\bin\axiom.exe
 ```
+
+Or via CTest: `ctest --test-dir build --output-on-failure`
 
 ## Development Roadmap
 

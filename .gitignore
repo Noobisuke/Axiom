@@ -43,14 +43,11 @@ test_*.out
 test_output.txt
 *.log
 
-# Ad-hoc test files in root
-test_commands.txt
-test_hello.cpp
-test_hello.exe
-test_step1.cpp
-test_step1.exe
-test_step1b.cpp
-test_step1b.exe
+# Ad-hoc scratch tests in the project ROOT only (never tests/)
+/test_*.cpp
+/test_*.exe
+/test_*.txt
+/test_*.out
 
 # Third-party tools (downloaded separately)
 tools/

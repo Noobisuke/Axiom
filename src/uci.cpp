@@ -50,9 +50,10 @@ void UCI::cmd_position(const std::string& tokens) {
   }
 
   if (word == "moves") {
+    Undo undo;
     while (iss >> word) {
-      Move m = Move::from_uci(word.c_str());
-      if (m.data) make_move(pos_, m); // will be implemented later
+      const Move m = Move::from_uci(word.c_str());
+      if (m.data) make_move(pos_, m, undo);
     }
   }
 }
