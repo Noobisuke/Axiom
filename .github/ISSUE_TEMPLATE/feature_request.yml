@@ -1,0 +1,69 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please describe what you'd like to see.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-sentence description of the feature.
+      placeholder: Add support for Syzygy tablebases
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this feature needed? What problem does it solve?
+      placeholder: |
+        Endgame play is weak without tablebases. Syzygy provides perfect play for positions with ≤7 pieces.
+    validations:
+      required: true
+
+  - type: textarea
+    id: design
+    attributes:
+      label: Design / Implementation Plan
+      description: How should this be implemented? Any specific algorithms, data structures, or phases?
+      placeholder: |
+        Phase 9: Add Syzygy probing in search and evaluate.
+        - Download WDL/DTZ files
+        - Add tbprobe.cpp/.h (from Stockfish, compatible license)
+        - Probe in qsearch and at root
+        - Adjudicate in fastchess with -tb flag
+
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Target Phase
+      options:
+        - "Phase 3: Move Generation & Perft"
+        - "Phase 4: Alpha-Beta Search"
+        - "Phase 5: UCI + SPRT"
+        - "Phase 6: Search Enhancements"
+        - "Phase 7: Evaluation"
+        - "Phase 8: NNUE"
+        - "Phase 9: Threading, Time Mgmt, Syzygy"
+        - "Phase 10-11: Testing vs Stockfish"
+        - "Not sure / Cross-cutting"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have read the CONTRIBUTING.md guidelines
+          required: true
+        - label: This feature aligns with the project roadmap
+          required: false
+        - label: I can implement this or help with implementation
+          required: false

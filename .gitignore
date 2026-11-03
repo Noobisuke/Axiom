@@ -1,0 +1,78 @@
+# Build directories
+build/
+build-*/
+out/
+bin/
+lib/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.a
+*.lib
+*.pdb
+*.idb
+*.ilk
+
+# CMake generated
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+*.cmake
+CMakePresets.json.local
+
+# IDE / Editor
+.vs/
+.vscode/
+*.sln
+*.vcxproj*
+*.vcxproj.filters
+*.user
+*.suo
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+
+# Test outputs
+test_*.exe
+test_*.out
+test_output.txt
+*.log
+
+# Ad-hoc test files in root
+test_commands.txt
+test_hello.cpp
+test_hello.exe
+test_step1.cpp
+test_step1.exe
+test_step1b.cpp
+test_step1b.exe
+
+# Third-party tools (downloaded separately)
+tools/
+
+# OS files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# Local config
+*.local
+.env
+*.env
+
+# Editor config
+.editorconfig.local
+
+# Benchmark outputs
+bench_results_*.txt
+perft_results_*.txt
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,0 +1,67 @@
+name: Bug Report
+description: Report a bug or incorrect behavior
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to trigger the bug.
+      placeholder: |
+        1. Run `...`
+        2. Input `...`
+        3. Observe `...`
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        OS, compiler, build type, and any relevant hardware info.
+      placeholder: |
+        - OS: Windows 11
+        - Compiler: GCC 13.2 (MinGW-w64)
+        - Build: Release (cmake --preset=release)
+        - CPU: Ryzen 5 5600H
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Output
+      description: Paste relevant output, perft failures, or sanitizer reports.
+      render: text
+      placeholder: |
+        ```
+        Error: ...
+        ```
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have tested with the Debug build (ASan/UBSan)
+          required: false
+        - label: I have run `perft_test.exe` and it passes/fails as expected
+          required: false
+        - label: This is a regression (worked in a previous commit)
+          required: false

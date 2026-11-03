@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NINJA_URL: https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
+
+jobs:
+  build-test:
+    name: Build & Test (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: |
+          $zip = "$env:TEMP\ninja.zip"
+          Invoke-WebRequest -Uri $env:NINJA_URL -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "$env:GITHUB_WORKSPACE\tools" -Force
+          Remove-Item $zip
+
+      - name: Setup GCC (MinGW-w64)
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          arch: x64
+          version: '13'
+          exception: seh
+          threads: posix
+
+      - name: Configure (Release)
+        run: cmake --preset=release
+
+      - name: Build (Release)
+        run: ninja -C build
+
+      - name: Run Perft Tests
+        run: .\build\bin\perft_test.exe
+
+      - name: Run Bench
+        run: .\build\bin\bench.exe
+
+      - name: Configure (Debug)
+        run: cmake --preset=debug
+
+      - name: Build (Debug)
+        run: ninja -C build-debug
+
+      - name: Run Tests (Debug, ASan/UBSan)
+        run: .\build-debug\bin\perft_test.exe
+
+  clang-tidy:
+    name: Clang-Tidy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-tidy
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy-18
+      - name: Run clang-tidy
+        run: |
+          cmake -B build -DCMAKE_CXX_CLANG_TIDY=clang-tidy-18 -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --target clang-tidy-fix || true
