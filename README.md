@@ -8,12 +8,16 @@
 
 ## Current Status
 
-🚧 **Early Development — Phase 3 complete (bitboards, legal move generation, perft verified)**
+🚧 **Early Development — Phase 3 complete, Phase 4 in progress**
 
-The engine generates fully legal moves and reproduces the standard perft counts
-for all six reference positions, up to depth 6. It does **not play chess yet** —
-there is no search beyond a placeholder and evaluation is material-only, so `go`
-still returns `bestmove 0000`.
+Phase 3 (bitboards, legal move generation) is done and perft-verified: all six
+reference positions match the published counts at every listed depth (32/32
+checks, ~36M nps single-core). Phase 4 is underway: static evaluation
+(material + piece-square tables, side-to-move perspective) and a negamax
+alpha-beta search with iterative deepening and mate-distance scores are
+implemented and tested. The engine now plays legal moves over UCI — quiescence
+search, move ordering, a transposition table, and draw detection are the
+remaining Phase 4 steps.
 
 ## Goals
 
@@ -35,8 +39,9 @@ still returns `bestmove 0000`.
 - ✅ make / unmake with an `Undo` record and incremental hash
 - ✅ perft and perft-divide
 - ✅ UCI protocol (uci, isready, position, ucinewgame, go, stop, quit)
-- ✅ Material-only evaluation (placeholder)
-- ✅ Transposition table structure
+- ✅ Static evaluation: material + piece-square tables, side-to-move perspective (`eval_test`: 8 checks)
+- ✅ Negamax alpha-beta search with iterative deepening, mate-distance scores, node/time limits, PV output (`search_test`: 7 checks, mate-in-1/2/3 verified against Stockfish)
+- ✅ Transposition table structure (not yet probed by search)
 
 ### Perft verification
 
@@ -49,16 +54,18 @@ still returns `bestmove 0000`.
 | position 5 | 44 | 1486 | 62379 | 2103487 | 89941194 | — |
 | position 6 | 46 | 2079 | 89890 | 3894594 | 164075551 | — |
 
-All 32 checks pass. (~25–34M nps, Release, Ryzen 5 5600H.)
+All 32 checks pass. (~36M nps, Release, Ryzen 5 5600H.)
 
 ## Not Yet Implemented
 
-- ❌ Alpha-beta search, quiescence, iterative deepening
+- ❌ Quiescence search (Phase 4c)
+- ❌ Move ordering: MVV-LVA captures first (Phase 4d)
+- ❌ Transposition table probing in search (Phase 4e)
+- ❌ Draw detection: threefold repetition, 50-move rule, insufficient material (Phase 4f)
 - ❌ Search enhancements (PVS, null move, LMR, futility, etc.)
-- ❌ Draw detection (threefold repetition, 50-move rule, insufficient material)
 - ❌ Handcrafted evaluation + Texel tuning
 - ❌ NNUE evaluation
-- ❌ Multithreading (Lazy SMP), time management, Syzygy TBs
+- ❌ Multithreading (Lazy SMP), real time management, Syzygy TBs
 - ❌ PEXT-based sliding attacks (magic bitboards are the current, portable path)
 
 ## Technology Stack
@@ -74,26 +81,32 @@ All 32 checks pass. (~25–34M nps, Release, Ryzen 5 5600H.)
 ```
 Axiom/
 ├── CMakeLists.txt          # Build configuration
-├── CMakePresets.json       # Configure/build presets
+├── CMakePresets.json       # Configure/build presets (release, debug, relwithdebinfo)
 ├── configure.ps1           # PowerShell configure helper
 ├── README.md
+├── ROADMAP.md              # Full 12-phase development roadmap
 ├── LICENSE
 ├── CONTRIBUTING.md
 ├── STUDY_NOTES.md          # Development log
 ├── include/                # Public headers
-│   ├── bitboard.hpp        # Bitboard types, constants, ops
-│   ├── eval.hpp            # Evaluation interface
+│   ├── bitboard.hpp        # Bitboard types, constants, ops, attack tables, magics
+│   ├── types.hpp           # Piece encoding, castling bits, Zobrist keys
 │   ├── move.hpp            # Move encoding (16-bit), MoveList
-│   ├── movegen.hpp         # Move generation declarations
-│   ├── position.hpp        # Position, FEN, validation
-│   ├── search.hpp          # Search limits, info, entry point
+│   ├── position.hpp        # Position, FEN, validation, attack queries
+│   ├── movegen.hpp         # Legal movegen, make/unmake, perft
+│   ├── eval.hpp            # Evaluation interface (side-to-move perspective)
+│   ├── search.hpp          # Search limits, info, negamax, mate score constants
 │   ├── tt.hpp              # Transposition table
 │   └── uci.hpp             # UCI protocol handler
-├── src/                    # Implementation
-├── tests/                  # Test executables
-│   └── perft_test.cpp      # Perft verification (TODO)
+├── src/                    # Implementation (.cpp per header)
+├── tests/                  # Test executables (built by CMake, run via CTest)
+│   ├── fen_test.cpp        # FEN parsing, validation, Zobrist (48 checks)
+│   ├── perft_test.cpp      # Perft vs published counts (32 checks at full depth)
+│   ├── eval_test.cpp       # Eval: symmetry, stm perspective, PST mirroring
+│   ├── search_test.cpp     # Search: mate in 1/2/3, stalemate, limits
+│   └── scratch/            # (gitignored) ad-hoc dev scratch files
 ├── bench/                  # Benchmark executable
-│   └── bench.cpp           # Search bench (TODO)
+│   └── bench.cpp
 ├── .github/                # GitHub workflows & templates
 └── tools/                  # (gitignored) fastchess, Stockfish, ninja
 ```
@@ -125,12 +138,18 @@ ninja -C build
 .\build\bin\axiom.exe
 ```
 
-### Debug Build (with sanitizers)
+### Debug Build
 
 ```powershell
 cmake --preset debug
 ninja -C build-debug
 ```
+
+Note: the preset enables ASan/UBSan, which requires the sanitizer runtimes
+(`libasan`/`libubsan`). The current MinGW-w64 GCC 16.1 install does not ship
+them, so linking the debug preset fails here. As a local substitute, perft was
+also verified under `-D_GLIBCXX_ASSERTIONS -D_GLIBCXX_DEBUG -O1` (30/30 checks,
+no assertion failures).
 
 ### Presets (CMakePresets.json)
 
@@ -146,6 +165,12 @@ ninja -C build-debug
 # FEN parsing, validation, mailbox/bitboard agreement, Zobrist  (48 checks)
 .\build\bin\fen_test.exe
 
+# Eval: symmetry, side-to-move perspective, PST mirroring  (8 checks)
+.\build\bin\eval_test.exe
+
+# Search: mate in 1/2/3, stalemate, hanging queen, limits  (7 checks)
+.\build\bin\search_test.exe
+
 # Perft, depths 1-4 across all six reference positions
 .\build\bin\perft_test.exe
 
@@ -155,31 +180,45 @@ ninja -C build-debug
 # Per-move breakdown for one position, e.g. case 1 (kiwipete) at depth 3
 .\build\bin\perft_test.exe 1 divide 3
 
-# Bench (placeholder search until Phase 4)
+# Bench
 .\build\bin\bench.exe
 
 # UCI smoke test
-printf 'uci\nisready\nposition startpos moves e2e4 e7e5 g1f3\ngo depth 3\nquit\n' | .\build\bin\axiom.exe
+printf 'uci\nisready\nposition startpos moves e2e4 e7e5 g1f3\ngo depth 6\nquit\n' | .\build\bin\axiom.exe
 ```
 
 Or via CTest: `ctest --test-dir build --output-on-failure`
 
+### Match testing (fastchess vs Stockfish)
+
+`tools/` (gitignored) contains fastchess and Stockfish. A quick smoke match:
+
+```powershell
+.\tools\fastchess-windows-x86-64\fastchess.exe `
+  -engine name=Axiom cmd=.\build\bin\axiom.exe `
+  -engine name=Stockfish cmd=.\tools\stockfish\stockfish-windows-x86-64-avx2.exe `
+  -each nodes=20000 -games 16 -concurrency 4
+```
+
+For real measurement use a time control and paired openings (Phase 5):
+`-each tc=10+0.1 -games 200 -openings file=book.epd -openings order=random`.
+Note: with very short `st=` movetimes Axiom may lose on time — proper time
+management is a Phase 9 topic.
+
 ## Development Roadmap
 
-| Phase | Focus | Target |
+| Phase | Focus | Status |
 |-------|-------|--------|
-| 3.1 | Attack tables | Knight, King, Pawn |
-| 3.2 | Sliding attacks | PEXT + magic fallback |
-| 3.3 | Move generation | Pseudo-legal + legal |
-| 3.4 | Make/Unmake | Incremental Zobrist |
-| 3.5 | Perft | Verify against known counts |
-| 4 | Alpha-beta + qsearch | Basic playing strength |
-| 5 | UCI + SPRT | fastchess integration |
-| 6+ | PVS, null move, LMR, ... | Search enhancements |
-| 7 | HCE + Texel tuning | Better evaluation |
-| 8 | NNUE | Neural net evaluation |
-| 9 | Lazy SMP, time mgmt | Multi-thread |
-| 10-11 | Gauntlet vs Stockfish | Testing |
+| 3 | Bitboards, legal movegen, perft | ✅ done (32/32 perft checks) |
+| 4a | Static eval (material + PST, stm perspective) | ✅ done (8 eval checks) |
+| 4b | Negamax alpha-beta + iterative deepening, mate scores | ✅ done (7 search checks) |
+| 4c-f | Quiescence, move ordering, TT, draw detection | 🚧 in progress |
+| 5 | UCI + bench + SPRT harness | ⬜ |
+| 6+ | PVS, null move, LMR, ... | ⬜ |
+| 7 | HCE + Texel tuning | ⬜ |
+| 8 | NNUE | ⬜ |
+| 9 | Lazy SMP, time mgmt | ⬜ |
+| 10-11 | Gauntlet vs Stockfish | ⬜ |
 
 ## License
 

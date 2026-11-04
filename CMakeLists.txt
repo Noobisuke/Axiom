@@ -87,9 +87,19 @@ target_link_libraries(perft_test PRIVATE chess_engine)
 add_executable(fen_test tests/fen_test.cpp)
 target_link_libraries(fen_test PRIVATE chess_engine)
 
+# ---------- Eval test executable ----------
+add_executable(eval_test tests/eval_test.cpp)
+target_link_libraries(eval_test PRIVATE chess_engine)
+
+# ---------- Search test executable ----------
+add_executable(search_test tests/search_test.cpp)
+target_link_libraries(search_test PRIVATE chess_engine)
+
 # ---------- CTest registration ----------
 enable_testing()
 add_test(NAME fen   COMMAND fen_test)
+add_test(NAME eval  COMMAND eval_test)
+add_test(NAME search COMMAND search_test)
 add_test(NAME perft COMMAND perft_test 4)
 
 # ---------- Bench executable ----------

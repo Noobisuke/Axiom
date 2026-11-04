@@ -37,17 +37,12 @@ CMakePresets.json.local
 .idea/
 *.iml
 
-# Test outputs
+# Ad-hoc scratch tests (kept locally, never committed)
+/tests/scratch/
 test_*.exe
 test_*.out
 test_output.txt
 *.log
-
-# Ad-hoc scratch tests in the project ROOT only (never tests/)
-/test_*.cpp
-/test_*.exe
-/test_*.txt
-/test_*.out
 
 # Third-party tools (downloaded separately)
 tools/
@@ -69,6 +64,11 @@ Desktop.ini
 # Benchmark outputs
 bench_results_*.txt
 perft_results_*.txt
+
+# fastchess auto-saved config/logs when run from the project root
+/config.json
+fastchess.log
+*.pgn
 
 # Temporary files
 *.tmp
