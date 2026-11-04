@@ -189,6 +189,14 @@ printf 'uci\nisready\nposition startpos moves e2e4 e7e5 g1f3\ngo depth 6\nquit\n
 
 Or via CTest: `ctest --test-dir build --output-on-failure`
 
+### Continuous Integration
+
+GitHub Actions (`.github/workflows/ci.yml`) on every push/PR to `main`:
+builds Release and RelWithDebInfo with MinGW-w64 (MSYS2 UCRT64), runs all
+four test executables plus perft to depth 5 and bench at depth 6, plus an
+informational clang-tidy job on Ubuntu. ASan/UBSan is not run in CI because
+MinGW GCC ships no sanitizer runtimes (see Debug Build note above).
+
 ### Match testing (fastchess vs Stockfish)
 
 `tools/` (gitignored) contains fastchess and Stockfish. A quick smoke match:

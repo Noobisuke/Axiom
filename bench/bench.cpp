@@ -2,11 +2,17 @@
 #include "search.hpp"
 #include "eval.hpp"
 #include "uci.hpp"
+#include "bitboard.hpp"
 #include <iostream>
 #include <chrono>
 #include <vector>
+#include <cstdlib>
 
-int main() {
+int main(int argc, char** argv) {
+  chess::init_attack_tables();
+  chess::init_sliding_attacks();
+  chess::init_zobrist();
+
   std::cout << "Bench starting..." << std::endl;
   chess::Position pos;
   pos.set_startpos();
@@ -22,7 +28,7 @@ int main() {
   };
 
   chess::SearchLimits limits;
-  limits.depth = 13;
+  limits.depth = (argc > 1) ? std::atoi(argv[1]) : 13; // CI passes a small depth
   chess::SearchInfo info;
 
   uint64_t total_nodes = 0;

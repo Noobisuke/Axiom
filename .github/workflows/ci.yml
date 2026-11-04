@@ -6,12 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  NINJA_URL: https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
-
 jobs:
   build-test:
-    name: Build & Test (Windows)
+    name: Build & Test (Windows, MinGW-w64)
     runs-on: windows-latest
     defaults:
       run:
@@ -21,20 +18,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Ninja
-        run: |
-          $zip = "$env:TEMP\ninja.zip"
-          Invoke-WebRequest -Uri $env:NINJA_URL -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath "$env:GITHUB_WORKSPACE\tools" -Force
-          Remove-Item $zip
-
-      - name: Setup GCC (MinGW-w64)
-        uses: egor-tensin/setup-mingw@v2
+      # MSYS2 UCRT64 provides gcc + cmake + ninja on PATH. The previous
+      # egor-tensin/setup-mingw@v2 step failed on the bare version '13'.
+      - name: Setup MSYS2 (UCRT64)
+        uses: msys2/setup-msys2@v2
         with:
-          arch: x64
-          version: '13'
-          exception: seh
-          threads: posix
+          msystem: UCRT64
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
 
       - name: Configure (Release)
         run: cmake --preset=release
@@ -42,23 +35,30 @@ jobs:
       - name: Build (Release)
         run: ninja -C build
 
-      - name: Run Perft Tests
-        run: .\build\bin\perft_test.exe
+      - name: Run tests (Release)
+        run: |
+          .\build\bin\fen_test.exe
+          .\build\bin\eval_test.exe
+          .\build\bin\search_test.exe
+          .\build\bin\perft_test.exe 5
 
-      - name: Run Bench
-        run: .\build\bin\bench.exe
+      - name: Run bench (depth 6)
+        run: .\build\bin\bench.exe 6
 
-      - name: Configure (Debug)
-        run: cmake --preset=debug
+      # No ASan/UBSan here: MinGW GCC ships no sanitizer runtimes, so the
+      # debug preset cannot link on Windows CI (same as local MinGW).
+      # RelWithDebInfo gives a second build configuration instead.
+      - name: Configure (RelWithDebInfo)
+        run: cmake --preset=relwithdebinfo
 
-      - name: Build (Debug)
-        run: ninja -C build-debug
+      - name: Build (RelWithDebInfo)
+        run: ninja -C build-relwithdebinfo
 
-      - name: Run Tests (Debug, ASan/UBSan)
-        run: .\build-debug\bin\perft_test.exe
+      - name: Run perft (RelWithDebInfo)
+        run: .\build-relwithdebinfo\bin\perft_test.exe 4
 
   clang-tidy:
-    name: Clang-Tidy
+    name: Clang-Tidy (informational)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,4 +67,4 @@ jobs:
       - name: Run clang-tidy
         run: |
           cmake -B build -DCMAKE_CXX_CLANG_TIDY=clang-tidy-18 -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build --target clang-tidy-fix || true
+          cmake --build build --target clang-tidy || true
