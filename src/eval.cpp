@@ -4,9 +4,6 @@
 
 namespace chess {
 
-// Material values in centipawns, indexed by PieceType.
-constexpr int PIECE_VALUES[6] = { 100, 320, 330, 500, 900, 20000 };
-
 // Piece-square tables, written from White's perspective with rank 8
 // first (index 0 = a8 ... index 63 = h1). A black piece on square s
 // uses the entry of the vertically mirrored square (s ^ 56).

@@ -21,6 +21,10 @@ struct Undo {
 // Generate all LEGAL moves for the side to move.
 void generate_moves(Position& pos, MoveList& list);
 
+// Generate all LEGAL captures (incl. en passant and promotion-captures)
+// for the side to move. Used by quiescence search.
+void generate_captures(Position& pos, MoveList& list);
+
 // Apply / revert a move. make_move assumes the move is pseudo-legal.
 // Unmake restores the exact previous state, including the Zobrist key.
 void make_move(Position& pos, Move m, Undo& undo);

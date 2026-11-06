@@ -49,12 +49,14 @@ std::string move_to_uci(Move m) {
 // Pseudo-legal generation
 // =====================================================================
 
-static void generate_pseudo(const Position& pos, MoveList& list) {
+static void generate_pseudo(const Position& pos, MoveList& list, bool captures_only) {
   const Color us = pos.side_to_move;
   const Color them = ~us;
   const Bitboard ours = pos.all_pieces(us);
   const Bitboard theirs = pos.all_pieces(them);
   const Bitboard occ = pos.occupied;
+  // Targets for non-captures: enemy pieces only when captures_only.
+  const Bitboard target = captures_only ? theirs : ~ours;
 
   const Bitboard promo_rank = (us == Color::White) ? RANKS[7] : RANKS[0];
   const int up = (us == Color::White) ? +8 : -8;
@@ -77,26 +79,28 @@ static void generate_pseudo(const Position& pos, MoveList& list) {
       }
     }
 
-    // Quiet pushes and promotions by push.
-    Bitboard pp = pb;
-    while (pp) {
-      const Square from = pop_lsb(pp);
-      const Square one = static_cast<Square>(static_cast<int>(from) + up);
-      if (occ & BB_SQUARES[static_cast<int>(one)]) continue;
+    if (!captures_only) {
+      // Quiet pushes and promotions by push.
+      Bitboard pp = pb;
+      while (pp) {
+        const Square from = pop_lsb(pp);
+        const Square one = static_cast<Square>(static_cast<int>(from) + up);
+        if (occ & BB_SQUARES[static_cast<int>(one)]) continue;
 
-      if (BB_SQUARES[static_cast<int>(one)] & promo_rank) {
-        add_promotions(list, from, one);
-        continue;
-      }
-      list.add(mk(from, one));
+        if (BB_SQUARES[static_cast<int>(one)] & promo_rank) {
+          add_promotions(list, from, one);
+          continue;
+        }
+        list.add(mk(from, one));
 
-      // Double push: only from the pawn's home rank, and only if the
-      // intermediate square was empty (already checked above).
-      const Rank home = (us == Color::White) ? Rank::Rank2 : Rank::Rank7;
-      if (rank_of(from) == home) {
-        const Square two = static_cast<Square>(static_cast<int>(from) + 2 * up);
-        if (!(occ & BB_SQUARES[static_cast<int>(two)]))
-          list.add(mk(from, two));
+        // Double push: only from the pawn's home rank, and only if the
+        // intermediate square was empty (already checked above).
+        const Rank home = (us == Color::White) ? Rank::Rank2 : Rank::Rank7;
+        if (rank_of(from) == home) {
+          const Square two = static_cast<Square>(static_cast<int>(from) + 2 * up);
+          if (!(occ & BB_SQUARES[static_cast<int>(two)]))
+            list.add(mk(from, two));
+        }
       }
     }
 
@@ -116,7 +120,7 @@ static void generate_pseudo(const Position& pos, MoveList& list) {
     Bitboard b = pos.pieces_of(us, PieceType::Knight);
     while (b) {
       const Square from = pop_lsb(b);
-      Bitboard t = KNIGHT_ATTACKS[static_cast<int>(from)] & ~ours;
+      Bitboard t = KNIGHT_ATTACKS[static_cast<int>(from)] & target;
       while (t) list.add(mk(from, pop_lsb(t)));
     }
   }
@@ -126,7 +130,7 @@ static void generate_pseudo(const Position& pos, MoveList& list) {
     Bitboard b = pos.pieces_of(us, PieceType::Bishop);
     while (b) {
       const Square from = pop_lsb(b);
-      Bitboard t = bishop_attacks(from, occ) & ~ours;
+      Bitboard t = bishop_attacks(from, occ) & target;
       while (t) list.add(mk(from, pop_lsb(t)));
     }
   }
@@ -134,7 +138,7 @@ static void generate_pseudo(const Position& pos, MoveList& list) {
     Bitboard b = pos.pieces_of(us, PieceType::Rook);
     while (b) {
       const Square from = pop_lsb(b);
-      Bitboard t = rook_attacks(from, occ) & ~ours;
+      Bitboard t = rook_attacks(from, occ) & target;
       while (t) list.add(mk(from, pop_lsb(t)));
     }
   }
@@ -142,7 +146,7 @@ static void generate_pseudo(const Position& pos, MoveList& list) {
     Bitboard b = pos.pieces_of(us, PieceType::Queen);
     while (b) {
       const Square from = pop_lsb(b);
-      Bitboard t = (bishop_attacks(from, occ) | rook_attacks(from, occ)) & ~ours;
+      Bitboard t = (bishop_attacks(from, occ) | rook_attacks(from, occ)) & target;
       while (t) list.add(mk(from, pop_lsb(t)));
     }
   }
@@ -152,12 +156,13 @@ static void generate_pseudo(const Position& pos, MoveList& list) {
     Bitboard b = pos.pieces_of(us, PieceType::King);
     while (b) {
       const Square from = pop_lsb(b);
-      Bitboard t = KING_ATTACKS[static_cast<int>(from)] & ~ours;
+      Bitboard t = KING_ATTACKS[static_cast<int>(from)] & target;
       while (t) list.add(mk(from, pop_lsb(t)));
     }
   }
 
   // ---------------- Castling ----------------
+  if (captures_only) return;
   // Fully legality-checked here: rights present, path empty, king not in
   // check and not passing through or landing on an attacked square.
   {
@@ -213,7 +218,7 @@ void generate_moves(Position& pos, MoveList& list) {
   list.clear();
 
   MoveList pseudo;
-  generate_pseudo(pos, pseudo);
+  generate_pseudo(pos, pseudo, /*captures_only=*/false);
 
   Undo undo;
   for (size_t i = 0; i < pseudo.size(); ++i) {
@@ -221,6 +226,21 @@ void generate_moves(Position& pos, MoveList& list) {
     make_move(pos, m, undo);
     // After the move the side to move has flipped, so the mover is
     // ~pos.side_to_move.
+    if (!in_check(pos, ~pos.side_to_move)) list.add(m);
+    unmake_move(pos, m, undo);
+  }
+}
+
+void generate_captures(Position& pos, MoveList& list) {
+  list.clear();
+
+  MoveList pseudo;
+  generate_pseudo(pos, pseudo, /*captures_only=*/true);
+
+  Undo undo;
+  for (size_t i = 0; i < pseudo.size(); ++i) {
+    const Move m = pseudo[i];
+    make_move(pos, m, undo);
     if (!in_check(pos, ~pos.side_to_move)) list.add(m);
     unmake_move(pos, m, undo);
   }
@@ -255,9 +275,13 @@ void make_move(Position& pos, Move m, Undo& undo) {
   k ^= ZOBRIST_CASTLING[static_cast<int>(pos.castling) & 0xF];
 
   // ---- identify the capture ----
+  // En passant: a pawn moving DIAGONALLY onto the (empty) ep square. The
+  // file check matters: a pawn PUSH onto the ep square is a normal push,
+  // not a capture.
   Piece captured = pos.piece_on(to);
   Square cap_sq = to;
-  if (pt == PieceType::Pawn && to == pos.ep_square && is_empty(captured)) {
+  if (pt == PieceType::Pawn && to == pos.ep_square && is_empty(captured)
+      && file_of(to) != file_of(from)) {
     const int behind = (us == Color::White) ? -8 : +8;
     cap_sq = static_cast<Square>(static_cast<int>(to) + behind);
     captured = pos.piece_on(cap_sq);

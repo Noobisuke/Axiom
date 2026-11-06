@@ -95,11 +95,16 @@ target_link_libraries(eval_test PRIVATE chess_engine)
 add_executable(search_test tests/search_test.cpp)
 target_link_libraries(search_test PRIVATE chess_engine)
 
+# ---------- Self-play test executable ----------
+add_executable(selfplay_test tests/selfplay_test.cpp)
+target_link_libraries(selfplay_test PRIVATE chess_engine)
+
 # ---------- CTest registration ----------
 enable_testing()
 add_test(NAME fen   COMMAND fen_test)
 add_test(NAME eval  COMMAND eval_test)
 add_test(NAME search COMMAND search_test)
+add_test(NAME selfplay COMMAND selfplay_test)
 add_test(NAME perft COMMAND perft_test 4)
 
 # ---------- Bench executable ----------

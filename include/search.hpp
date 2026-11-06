@@ -2,6 +2,8 @@
 
 #include "position.hpp"
 #include "move.hpp"
+#include "movegen.hpp"
+#include "tt.hpp"
 #include <cstdint>
 
 namespace chess {
@@ -28,6 +30,7 @@ struct SearchLimits {
   int movestogo = -1;
   bool infinite = false;
   bool ponder = false;
+  bool quiet = false;   // suppress UCI info lines (used by tests/self-play)
 };
 
 struct SearchInfo {
@@ -46,9 +49,25 @@ struct SearchInfo {
 void search(Position& pos, const SearchLimits& limits, SearchInfo& info);
 
 // Exposed for tests: plain negamax with alpha-beta, static eval at the
-// horizon, mate-distance scores. No move ordering yet (Phase 4d), no TT
-// (4e), no draw detection (4f) -- those are separate steps.
+// horizon, mate-distance scores. No TT (Phase 4e), no draw detection
+// (4f) yet -- those are separate steps.
 int negamax(Position& pos, int depth, int alpha, int beta, int ply,
             uint64_t& nodes, bool& stopped);
+
+// Quiescence search: stand-pat + legal captures only (Phase 4c).
+int qsearch(Position& pos, int alpha, int beta, int ply,
+            uint64_t& nodes, bool& stopped);
+
+// MVV-LVA move ordering (Phase 4d): captures first, most valuable victim /
+// least valuable attacker first; promotions next; quiet moves last.
+void order_moves(const Position& pos, MoveList& list);
+
+// Draw detection (Phase 4f): 50-move rule, threefold repetition,
+// insufficient material. NOTE: call only after move generation --
+// checkmate takes priority over the 50-move rule.
+bool is_draw(const Position& pos);
+
+// Global transposition table (Phase 4e). Sized once (16 MB) on first use.
+extern TranspositionTable g_tt;
 
 } // namespace chess

@@ -7,9 +7,10 @@ namespace chess {
 void TranspositionTable::resize(size_t mb) {
   size_t bytes = mb * 1024 * 1024;
   size_t new_size = bytes / sizeof(TTEntry);
-  // Round to power of 2
+  // Round up to a power of 2. Clamp first: __builtin_clzll(0) and << 64
+  // are both undefined behaviour.
+  if (new_size < 2) new_size = 2;
   new_size = 1ULL << (64 - __builtin_clzll(new_size - 1));
-  if (new_size < 1) new_size = 1;
 
   entries_ = std::make_unique<TTEntry[]>(new_size);
   size_ = new_size;

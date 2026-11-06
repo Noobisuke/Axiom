@@ -8,16 +8,17 @@
 
 ## Current Status
 
-🚧 **Early Development — Phase 3 complete, Phase 4 in progress**
+🚧 **Early Development — Phase 4 complete, Phase 5 next**
 
 Phase 3 (bitboards, legal move generation) is done and perft-verified: all six
 reference positions match the published counts at every listed depth (32/32
-checks, ~36M nps single-core). Phase 4 is underway: static evaluation
-(material + piece-square tables, side-to-move perspective) and a negamax
-alpha-beta search with iterative deepening and mate-distance scores are
-implemented and tested. The engine now plays legal moves over UCI — quiescence
-search, move ordering, a transposition table, and draw detection are the
-remaining Phase 4 steps.
+checks, ~36M nps single-core). Phase 4 (playable engine) is complete:
+static evaluation (material + PST, side-to-move perspective), negamax
+alpha-beta with iterative deepening and mate-distance scores, quiescence
+search, MVV-LVA move ordering, transposition table with bound types and
+mate-score ply adjustment, and draw detection (threefold, 50-move,
+insufficient material). Verified: 17 search checks, 20/20 self-play wins
+vs a random mover with zero illegal moves, bench depth 6 = 1,669,364 nodes.
 
 ## Goals
 
@@ -40,8 +41,12 @@ remaining Phase 4 steps.
 - ✅ perft and perft-divide
 - ✅ UCI protocol (uci, isready, position, ucinewgame, go, stop, quit)
 - ✅ Static evaluation: material + piece-square tables, side-to-move perspective (`eval_test`: 8 checks)
-- ✅ Negamax alpha-beta search with iterative deepening, mate-distance scores, node/time limits, PV output (`search_test`: 7 checks, mate-in-1/2/3 verified against Stockfish)
-- ✅ Transposition table structure (not yet probed by search)
+- ✅ Negamax alpha-beta search with iterative deepening, mate-distance scores, node/time limits, PV output (`search_test`: mate-in-1/2/3 verified against Stockfish)
+- ✅ Quiescence search: stand-pat + legal captures (`generate_captures`), ply-capped
+- ✅ MVV-LVA move ordering (captures first, promotions boosted; TT move first; previous-iteration best first at root)
+- ✅ Transposition table used by search: exact/lower/upper bounds, depth-preferred replacement, mate scores re-based by ply on store/probe, 16 MB default
+- ✅ Draw detection: threefold repetition (Zobrist history), 50-move rule at clock 100 (mate on the 100th halfmove still wins), insufficient material
+- ✅ Self-play test: 20 games vs random mover, 20/20 wins, 0 illegal moves (`selfplay_test`)
 
 ### Perft verification
 
@@ -58,10 +63,6 @@ All 32 checks pass. (~36M nps, Release, Ryzen 5 5600H.)
 
 ## Not Yet Implemented
 
-- ❌ Quiescence search (Phase 4c)
-- ❌ Move ordering: MVV-LVA captures first (Phase 4d)
-- ❌ Transposition table probing in search (Phase 4e)
-- ❌ Draw detection: threefold repetition, 50-move rule, insufficient material (Phase 4f)
 - ❌ Search enhancements (PVS, null move, LMR, futility, etc.)
 - ❌ Handcrafted evaluation + Texel tuning
 - ❌ NNUE evaluation
@@ -103,8 +104,8 @@ Axiom/
 │   ├── fen_test.cpp        # FEN parsing, validation, Zobrist (48 checks)
 │   ├── perft_test.cpp      # Perft vs published counts (32 checks at full depth)
 │   ├── eval_test.cpp       # Eval: symmetry, stm perspective, PST mirroring
-│   ├── search_test.cpp     # Search: mate in 1/2/3, stalemate, limits
-│   └── scratch/            # (gitignored) ad-hoc dev scratch files
+│   ├── search_test.cpp     # Search: mates, qsearch, ordering, TT, draws (17 checks)
+│   └── selfplay_test.cpp   # Self-play vs random mover (20 games)
 ├── bench/                  # Benchmark executable
 │   └── bench.cpp
 ├── .github/                # GitHub workflows & templates
@@ -168,8 +169,12 @@ no assertion failures).
 # Eval: symmetry, side-to-move perspective, PST mirroring  (8 checks)
 .\build\bin\eval_test.exe
 
-# Search: mate in 1/2/3, stalemate, hanging queen, limits  (7 checks)
+# Search: mate in 1/2/3, stalemate, hanging queen, qsearch horizon, MVV-LVA,
+# TT, draw detection, node limit  (17 checks)
 .\build\bin\search_test.exe
+
+# Self-play vs a random mover: legality + dominance  (2 checks, 20 games)
+.\build\bin\selfplay_test.exe
 
 # Perft, depths 1-4 across all six reference positions
 .\build\bin\perft_test.exe
@@ -180,8 +185,9 @@ no assertion failures).
 # Per-move breakdown for one position, e.g. case 1 (kiwipete) at depth 3
 .\build\bin\perft_test.exe 1 divide 3
 
-# Bench
+# Bench (fixed depth 6 signature: 1,669,364 nodes, ~4.3M nps)
 .\build\bin\bench.exe
+.\build\bin\bench.exe 8
 
 # UCI smoke test
 printf 'uci\nisready\nposition startpos moves e2e4 e7e5 g1f3\ngo depth 6\nquit\n' | .\build\bin\axiom.exe
@@ -193,7 +199,7 @@ Or via CTest: `ctest --test-dir build --output-on-failure`
 
 GitHub Actions (`.github/workflows/ci.yml`) on every push/PR to `main`:
 builds Release and RelWithDebInfo with MinGW-w64 (MSYS2 UCRT64), runs all
-four test executables plus perft to depth 5 and bench at depth 6, plus an
+five test executables plus perft to depth 5 and bench at depth 6, plus an
 informational clang-tidy job on Ubuntu. ASan/UBSan is not run in CI because
 MinGW GCC ships no sanitizer runtimes (see Debug Build note above).
 
@@ -218,9 +224,7 @@ management is a Phase 9 topic.
 | Phase | Focus | Status |
 |-------|-------|--------|
 | 3 | Bitboards, legal movegen, perft | ✅ done (32/32 perft checks) |
-| 4a | Static eval (material + PST, stm perspective) | ✅ done (8 eval checks) |
-| 4b | Negamax alpha-beta + iterative deepening, mate scores | ✅ done (7 search checks) |
-| 4c-f | Quiescence, move ordering, TT, draw detection | 🚧 in progress |
+| 4 | Playable engine: eval, alpha-beta, qsearch, ordering, TT, draws | ✅ done (17 search checks, 20/20 vs random) |
 | 5 | UCI + bench + SPRT harness | ⬜ |
 | 6+ | PVS, null move, LMR, ... | ⬜ |
 | 7 | HCE + Texel tuning | ⬜ |
